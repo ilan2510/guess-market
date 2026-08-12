@@ -1,0 +1,17 @@
+# compiled output
+engine/out/
+ui/out/
+
+# build artifacts
+dist/
+
+# internal working notes (not part of the project code)
+CLAUDE.md
+SPEC.md
+.claude/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
