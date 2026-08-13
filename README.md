@@ -1,38 +1,36 @@
 # Guess Market
 
-A console-based prediction market, written in Java. Users load events from an XML
-file and trade "Yes/No" shares on each event using the LMSR (Logarithmic Market
-Scoring Rule) pricing method. This is Part 1 of a rolling course project.
+This is a Java program for a "guess market" - a place where you can trade Yes/No
+shares on events (for example "will it rain tomorrow?"). The price of each event is
+worked out with the LMSR method. This is part 1 of the course project.
 
-## Project structure
+## How the code is split
 
-The project is split into two modules:
+The project has two parts:
 
-- **engine** (`engine/src/guessmarket/engine`) - the logic of the system. It holds
-  the events, does the LMSR math, loads and validates the XML file, and answers
-  requests. It does no console input/output.
-- **ui** (`ui/src/guessmarket/ui`) - the console interface. It shows the menu, reads
-  the user input, prints the results, and asks the engine to do the work. This is the
-  only module that prints to the screen or reads from the keyboard, and it holds the
-  `main` method.
+- **engine** (`engine/src/guessmarket/engine`) - this is the logic. It keeps the
+  events, does the LMSR math, reads the XML file and checks it. It does not print
+  anything to the screen.
+- **ui** (`ui/src/guessmarket/ui`) - this is the console part. It shows the menu, reads
+  what the user types, prints the results, and asks the engine to do the work. The
+  `main` method is here.
 
-## Menu commands
+## The menu
 
-1. Load events file (XML)
+1. Load events file
 2. Display events
 3. Event trading status
 4. Participate in an event (buy shares)
 5. Close event
 6. Exit
 
-## How to build and run
+## How to run
 
-Requires Java 25.
+You need Java 25.
 
-Easiest way (Windows): double-click `run.bat`. It compiles the source and starts the
-program.
+Easy way (Windows): double-click `run.bat`. It compiles the code and starts the program.
 
-Or manually from the project folder:
+Or from the command line, in the project folder:
 
 ```
 javac -d engine/out engine/src/guessmarket/engine/*.java
@@ -42,8 +40,8 @@ java -cp "engine/out;ui/out" guessmarket.ui.Main
 
 ## Test files
 
-The `test-files` folder holds sample XML files to load:
+The `test-files` folder has some XML files to try:
 
-- `single.xml`, `multiple.xml` - valid files
-- `error-2-duplicate-id.xml` - two events share the same id (invalid)
-- `error-3-bad-commission.xml` - a commission value above 90 (invalid)
+- `single.xml`, `multiple.xml` - good files
+- `error-2-duplicate-id.xml` - two events with the same id (bad file)
+- `error-3-bad-commission.xml` - a commission over 90 (bad file)
