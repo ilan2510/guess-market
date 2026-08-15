@@ -212,12 +212,13 @@ public class Main
             System.out.println("There are no events to choose from.");
             return null;
         }
-        System.out.println();
         for (int i = 0; i < list.size(); i++)
         {
-            EventInfo event = list.get(i);
-            System.out.println((i + 1) + ". " + event.getName() + " (id " + event.getId() + ")");
+            System.out.println();
+            System.out.println("Choice " + (i + 1) + ":");
+            printEventDetails(list.get(i));
         }
+        System.out.println();
         System.out.print("Choose an event by number: ");
         String input = readLine().trim();
         int choice;
@@ -282,24 +283,29 @@ public class Main
     {
         for (EventInfo event : eventsToPrint)
         {
-            String status;
-            if (event.isClosed())
-            {
-                status = "Closed";
-            }
-            else
-            {
-                status = "Active";
-            }
             System.out.println();
-            System.out.println("Event number: " + event.getId());
-            System.out.println("Name: " + event.getName());
-            System.out.println("Description: " + event.getDescription());
-            System.out.println("Commission: " + event.getCommissionPercent() + "%");
-            System.out.println("Commission collected: " + formatCommissionType(event.getCommissionType()));
-            System.out.println("Options: " + event.getOptionName(0) + ", " + event.getOptionName(1));
-            System.out.println("Status: " + status);
+            printEventDetails(event);
         }
+    }
+
+    private static void printEventDetails(EventInfo event)
+    {
+        String status;
+        if (event.isClosed())
+        {
+            status = "Closed";
+        }
+        else
+        {
+            status = "Active";
+        }
+        System.out.println("Event number: " + event.getId());
+        System.out.println("Name: " + event.getName());
+        System.out.println("Description: " + event.getDescription());
+        System.out.println("Commission: " + event.getCommissionPercent() + "%");
+        System.out.println("Commission collected: " + formatCommissionType(event.getCommissionType()));
+        System.out.println("Options: " + event.getOptionName(0) + ", " + event.getOptionName(1));
+        System.out.println("Status: " + status);
     }
 
     private static void printEventStatus(EventInfo event)
