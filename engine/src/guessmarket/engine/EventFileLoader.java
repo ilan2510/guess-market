@@ -100,7 +100,7 @@ public class EventFileLoader
         int commissionPercent = Integer.parseInt(commissionElement.getTextContent().trim());
         String commissionTypeText = commissionElement.getAttribute("type");
         CommissionType commissionType =
-                commissionTypeText.equals("on-close") ? CommissionType.ON_CLOSE : CommissionType.ON_PURCHASE;
+                commissionTypeText.equalsIgnoreCase("on-close") ? CommissionType.ON_CLOSE : CommissionType.ON_PURCHASE;
 
         Element optionsElement = (Element) eventElement.getElementsByTagName("GM-options").item(0);
         NodeList optionNodes = optionsElement.getElementsByTagName("GM-option");
