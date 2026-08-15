@@ -2,9 +2,6 @@ package guessmarket.engine;
 
 import java.util.List;
 
-// DTO: a plain, read-only copy of an event's data, safe to hand out to the UI.
-// The engine builds a fresh one of these every time it needs to answer with event data,
-// instead of giving out its real Event object.
 public class EventInfo
 {
 

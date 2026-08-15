@@ -135,7 +135,6 @@ public class Event
         this.winningOptionIndex = winningOptionIndex;
     }
 
-    // Builds a read-only snapshot of this event's current data, safe to hand out to the UI.
     public EventInfo toEventInfo()
     {
         String[] optionNamesCopy = { optionNames[0], optionNames[1] };

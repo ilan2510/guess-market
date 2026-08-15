@@ -1,6 +1,5 @@
 package guessmarket.engine;
 
-// DTO: a plain, read-only copy of a trade, safe to hand out to the UI.
 public class TradeInfo
 {
 
