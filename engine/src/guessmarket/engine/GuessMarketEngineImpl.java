@@ -1,54 +1,74 @@
 package guessmarket.engine;
 
+import guessmarket.engine.exception.EngineException;
+import guessmarket.engine.exception.InvalidEventFileException;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class GuessMarketEngineImpl implements GuessMarketEngine {
+public class GuessMarketEngineImpl implements GuessMarketEngine
+{
 
     private static final double WINNING_SHARE_PAYOUT = 1.0;
 
     private final EventFileLoader fileLoader;
     private List<Event> events;
 
-    public GuessMarketEngineImpl() {
+    public GuessMarketEngineImpl()
+    {
         this.fileLoader = new EventFileLoader();
         this.events = new ArrayList<>();
     }
 
     @Override
-    public List<Event> loadFile(String filePath) throws InvalidEventFileException {
+    public List<EventInfo> loadFile(String filePath) throws InvalidEventFileException
+    {
         List<Event> loadedEvents = fileLoader.load(filePath);
         this.events = loadedEvents;
-        return loadedEvents;
+        return toEventInfoList(loadedEvents);
     }
 
     @Override
-    public List<Event> getAllEvents() throws EngineException {
+    public List<EventInfo> getAllEvents() throws EngineException
+    {
         requireEventsLoaded();
-        return events;
+        return toEventInfoList(events);
     }
 
     @Override
-    public List<Event> getActiveEvents() throws EngineException {
+    public List<EventInfo> getActiveEvents() throws EngineException
+    {
         requireEventsLoaded();
         List<Event> activeEvents = new ArrayList<>();
-        for (Event event : events) {
-            if (!event.isClosed()) {
+        for (Event event : events)
+        {
+            if (!event.isClosed())
+            {
                 activeEvents.add(event);
             }
         }
-        return activeEvents;
+        return toEventInfoList(activeEvents);
     }
 
     @Override
-    public PurchaseResult buyShares(int eventId, int optionIndex, int quantity) throws EngineException {
+    public EventInfo getEventInfo(int eventId) throws EngineException
+    {
+        Event event = findEventById(eventId);
+        return event.toEventInfo();
+    }
+
+    @Override
+    public PurchaseResult buyShares(int eventId, int optionIndex, int quantity) throws EngineException
+    {
         Event event = findEventById(eventId);
 
-        if (event.isClosed()) {
+        if (event.isClosed())
+        {
             throw new EngineException("This event is already closed and cannot accept new trades.");
         }
         validateOptionIndex(optionIndex);
-        if (quantity <= 0) {
+        if (quantity <= 0)
+        {
             throw new EngineException("Quantity must be a positive whole number.");
         }
 
@@ -62,13 +82,15 @@ public class GuessMarketEngineImpl implements GuessMarketEngine {
         double sharesCost = costAfter - costBefore;
 
         double feeCost = 0;
-        if (event.getCommissionType() == CommissionType.ON_PURCHASE) {
+        if (event.getCommissionType() == CommissionType.ON_PURCHASE)
+        {
             feeCost = sharesCost * event.getCommissionPercent() / 100.0;
         }
 
         event.recordPurchase(optionIndex, quantity, sharesCost);
         event.addToAccountBalance(sharesCost);
-        if (feeCost > 0) {
+        if (feeCost > 0)
+        {
             event.addToAccountBalance(feeCost);
             event.addFeesCollected(feeCost);
         }
@@ -77,10 +99,12 @@ public class GuessMarketEngineImpl implements GuessMarketEngine {
     }
 
     @Override
-    public void closeEvent(int eventId, int winningOptionIndex) throws EngineException {
+    public void closeEvent(int eventId, int winningOptionIndex) throws EngineException
+    {
         Event event = findEventById(eventId);
 
-        if (event.isClosed()) {
+        if (event.isClosed())
+        {
             throw new EngineException("This event is already closed.");
         }
         validateOptionIndex(winningOptionIndex);
@@ -89,7 +113,8 @@ public class GuessMarketEngineImpl implements GuessMarketEngine {
         double totalOwedToWinners = winningShares * WINNING_SHARE_PAYOUT;
 
         double feeAmount = 0;
-        if (event.getCommissionType() == CommissionType.ON_CLOSE) {
+        if (event.getCommissionType() == CommissionType.ON_CLOSE)
+        {
             feeAmount = totalOwedToWinners * event.getCommissionPercent() / 100.0;
             event.addFeesCollected(feeAmount);
         }
@@ -99,22 +124,39 @@ public class GuessMarketEngineImpl implements GuessMarketEngine {
         event.close(winningOptionIndex);
     }
 
-    private void validateOptionIndex(int optionIndex) throws EngineException {
-        if (optionIndex != 0 && optionIndex != 1) {
+    private List<EventInfo> toEventInfoList(List<Event> eventList)
+    {
+        List<EventInfo> infoList = new ArrayList<>();
+        for (Event event : eventList)
+        {
+            infoList.add(event.toEventInfo());
+        }
+        return infoList;
+    }
+
+    private void validateOptionIndex(int optionIndex) throws EngineException
+    {
+        if (optionIndex != 0 && optionIndex != 1)
+        {
             throw new EngineException("Invalid option chosen.");
         }
     }
 
-    private void requireEventsLoaded() throws EngineException {
-        if (events.isEmpty()) {
+    private void requireEventsLoaded() throws EngineException
+    {
+        if (events.isEmpty())
+        {
             throw new EngineException("No events are loaded. Use the load command to load an events file first.");
         }
     }
 
-    private Event findEventById(int eventId) throws EngineException {
+    private Event findEventById(int eventId) throws EngineException
+    {
         requireEventsLoaded();
-        for (Event event : events) {
-            if (event.getId() == eventId) {
+        for (Event event : events)
+        {
+            if (event.getId() == eventId)
+            {
                 return event;
             }
         }

@@ -4,25 +4,29 @@ import java.util.List;
 import java.util.Scanner;
 
 import guessmarket.engine.CommissionType;
-import guessmarket.engine.EngineException;
-import guessmarket.engine.Event;
+import guessmarket.engine.EventInfo;
 import guessmarket.engine.GuessMarketEngine;
 import guessmarket.engine.GuessMarketEngineImpl;
-import guessmarket.engine.InvalidEventFileException;
 import guessmarket.engine.PurchaseResult;
-import guessmarket.engine.Trade;
+import guessmarket.engine.TradeInfo;
+import guessmarket.engine.exception.EngineException;
+import guessmarket.engine.exception.InvalidEventFileException;
 
-public class Main {
+public class Main
+{
 
     private static final Scanner scanner = new Scanner(System.in);
     private static final GuessMarketEngine engine = new GuessMarketEngineImpl();
 
-    public static void main(String[] args) {
+    public static void main(String[] args)
+    {
         boolean running = true;
-        while (running) {
+        while (running)
+        {
             printMenu();
             String choice = readLine().trim();
-            switch (choice) {
+            switch (choice)
+            {
                 case "1":
                     handleLoadFile();
                     break;
@@ -49,8 +53,10 @@ public class Main {
         scanner.close();
     }
 
-    private static String readLine() {
-        if (!scanner.hasNextLine()) {
+    private static String readLine()
+    {
+        if (!scanner.hasNextLine())
+        {
             System.out.println();
             System.out.println("No more input. Exiting.");
             System.exit(0);
@@ -58,7 +64,8 @@ public class Main {
         return scanner.nextLine();
     }
 
-    private static void printMenu() {
+    private static void printMenu()
+    {
         System.out.println();
         System.out.println("===== Guess Market =====");
         System.out.println("1. Load events file");
@@ -70,44 +77,60 @@ public class Main {
         System.out.print("Choose a command: ");
     }
 
-    private static void handleLoadFile() {
+    private static void handleLoadFile()
+    {
         System.out.print("Enter the full path to the XML events file: ");
         String path = readLine();
-        try {
-            List<Event> loaded = engine.loadFile(path);
+        try
+        {
+            List<EventInfo> loaded = engine.loadFile(path);
             System.out.println("File loaded successfully. " + loaded.size() + " event(s) loaded.");
-        } catch (InvalidEventFileException e) {
+        }
+        catch (InvalidEventFileException e)
+        {
             System.out.println("Could not load file: " + e.getMessage());
         }
     }
 
-    private static void handleDisplayEvents() {
-        try {
-            List<Event> allEvents = engine.getAllEvents();
+    private static void handleDisplayEvents()
+    {
+        try
+        {
+            List<EventInfo> allEvents = engine.getAllEvents();
             printEventList(allEvents);
-        } catch (EngineException e) {
+        }
+        catch (EngineException e)
+        {
             System.out.println(e.getMessage());
         }
     }
 
-    private static void handleEventStatus() {
-        try {
-            List<Event> allEvents = engine.getAllEvents();
-            Event chosen = chooseEventFromList(allEvents);
-            if (chosen == null) {
+    private static void handleEventStatus()
+    {
+        try
+        {
+            List<EventInfo> allEvents = engine.getAllEvents();
+            EventInfo chosen = chooseEventFromList(allEvents);
+            if (chosen == null)
+            {
                 return;
             }
             printEventStatus(chosen);
-        } catch (EngineException e) {
+        }
+        catch (EngineException e)
+        {
             System.out.println(e.getMessage());
         }
     }
 
-    private static void handleParticipate() {
-        try {
-            List<Event> activeEvents = engine.getActiveEvents();
-            Event chosen = chooseEventFromList(activeEvents);
-            if (chosen == null) {
+    private static void handleParticipate()
+    {
+        try
+        {
+            List<EventInfo> activeEvents = engine.getActiveEvents();
+            EventInfo chosen = chooseEventFromList(activeEvents);
+            if (chosen == null)
+            {
                 return;
             }
             printEventStatus(chosen);
@@ -117,35 +140,44 @@ public class Main {
             System.out.println("2. " + chosen.getOptionName(1));
             System.out.print("Which option do you believe in? ");
             int optionChoice = readOptionChoice();
-            if (optionChoice == -1) {
+            if (optionChoice == -1)
+            {
                 return;
             }
 
             System.out.print("How many shares do you want to buy? ");
             int quantity = readPositiveInt();
-            if (quantity == -1) {
+            if (quantity == -1)
+            {
                 return;
             }
 
             PurchaseResult result = engine.buyShares(chosen.getId(), optionChoice - 1, quantity);
             System.out.println();
             System.out.printf("Shares cost: %.2f%n", result.getSharesCost());
-            if (result.getFeeCost() > 0) {
+            if (result.getFeeCost() > 0)
+            {
                 System.out.printf("Fee: %.2f%n", result.getFeeCost());
             }
             System.out.printf("Total paid: %.2f%n", result.getTotalPaid());
 
-            printEventStatus(chosen);
-        } catch (EngineException e) {
+            EventInfo updated = engine.getEventInfo(chosen.getId());
+            printEventStatus(updated);
+        }
+        catch (EngineException e)
+        {
             System.out.println(e.getMessage());
         }
     }
 
-    private static void handleCloseEvent() {
-        try {
-            List<Event> activeEvents = engine.getActiveEvents();
-            Event chosen = chooseEventFromList(activeEvents);
-            if (chosen == null) {
+    private static void handleCloseEvent()
+    {
+        try
+        {
+            List<EventInfo> activeEvents = engine.getActiveEvents();
+            EventInfo chosen = chooseEventFromList(activeEvents);
+            if (chosen == null)
+            {
                 return;
             }
             printEventStatus(chosen);
@@ -156,81 +188,107 @@ public class Main {
             System.out.println("2. " + chosen.getOptionName(1));
             System.out.print("Choose the winning option: ");
             int optionChoice = readOptionChoice();
-            if (optionChoice == -1) {
+            if (optionChoice == -1)
+            {
                 return;
             }
 
             engine.closeEvent(chosen.getId(), optionChoice - 1);
             System.out.println();
             System.out.println("Event closed.");
-            printEventStatus(chosen);
-        } catch (EngineException e) {
+            EventInfo updated = engine.getEventInfo(chosen.getId());
+            printEventStatus(updated);
+        }
+        catch (EngineException e)
+        {
             System.out.println(e.getMessage());
         }
     }
 
-    private static Event chooseEventFromList(List<Event> list) {
-        if (list.isEmpty()) {
+    private static EventInfo chooseEventFromList(List<EventInfo> list)
+    {
+        if (list.isEmpty())
+        {
             System.out.println("There are no events to choose from.");
             return null;
         }
         System.out.println();
-        for (int i = 0; i < list.size(); i++) {
-            Event event = list.get(i);
+        for (int i = 0; i < list.size(); i++)
+        {
+            EventInfo event = list.get(i);
             System.out.println((i + 1) + ". " + event.getName() + " (id " + event.getId() + ")");
         }
         System.out.print("Choose an event by number: ");
         String input = readLine().trim();
         int choice;
-        try {
+        try
+        {
             choice = Integer.parseInt(input);
-        } catch (NumberFormatException e) {
+        }
+        catch (NumberFormatException e)
+        {
             System.out.println("Please enter a number.");
             return null;
         }
-        if (choice < 1 || choice > list.size()) {
+        if (choice < 1 || choice > list.size())
+        {
             System.out.println("Please enter a number between 1 and " + list.size() + ".");
             return null;
         }
         return list.get(choice - 1);
     }
 
-    private static int readOptionChoice() {
+    private static int readOptionChoice()
+    {
         String input = readLine().trim();
-        try {
+        try
+        {
             int choice = Integer.parseInt(input);
-            if (choice != 1 && choice != 2) {
+            if (choice != 1 && choice != 2)
+            {
                 System.out.println("Please enter 1 or 2.");
                 return -1;
             }
             return choice;
-        } catch (NumberFormatException e) {
+        }
+        catch (NumberFormatException e)
+        {
             System.out.println("Please enter a number (1 or 2).");
             return -1;
         }
     }
 
-    private static int readPositiveInt() {
+    private static int readPositiveInt()
+    {
         String input = readLine().trim();
-        try {
+        try
+        {
             int value = Integer.parseInt(input);
-            if (value <= 0) {
+            if (value <= 0)
+            {
                 System.out.println("Please enter a positive whole number.");
                 return -1;
             }
             return value;
-        } catch (NumberFormatException e) {
+        }
+        catch (NumberFormatException e)
+        {
             System.out.println("Please enter a whole number.");
             return -1;
         }
     }
 
-    private static void printEventList(List<Event> eventsToPrint) {
-        for (Event event : eventsToPrint) {
+    private static void printEventList(List<EventInfo> eventsToPrint)
+    {
+        for (EventInfo event : eventsToPrint)
+        {
             String status;
-            if (event.isClosed()) {
+            if (event.isClosed())
+            {
                 status = "Closed";
-            } else {
+            }
+            else
+            {
                 status = "Active";
             }
             System.out.println();
@@ -244,10 +302,12 @@ public class Main {
         }
     }
 
-    private static void printEventStatus(Event event) {
+    private static void printEventStatus(EventInfo event)
+    {
         System.out.println();
         System.out.println("Status for event: " + event.getName());
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 2; i++)
+        {
             System.out.printf("  %s: price %.2f, shares bought %d%n",
                     event.getOptionName(i), event.getCurrentPrice(i), event.getQuantity(i));
         }
@@ -255,30 +315,40 @@ public class Main {
         System.out.printf("Total fees collected: %.2f%n", event.getTotalFeesCollected());
 
         System.out.println("Trade history (most recent first):");
-        List<Trade> history = event.getTradeHistory();
-        if (history.isEmpty()) {
+        List<TradeInfo> history = event.getTradeHistory();
+        if (history.isEmpty())
+        {
             System.out.println("  No trades yet.");
-        } else {
-            for (int i = history.size() - 1; i >= 0; i--) {
-                Trade trade = history.get(i);
+        }
+        else
+        {
+            for (int i = history.size() - 1; i >= 0; i--)
+            {
+                TradeInfo trade = history.get(i);
                 System.out.printf("  %s: %d shares, paid %.2f%n",
                         trade.getOptionName(), trade.getQuantity(), trade.getPricePaid());
             }
         }
 
-        if (event.isClosed()) {
+        if (event.isClosed())
+        {
             System.out.println("This event is closed.");
             System.out.println("Winning option: " + event.getOptionName(event.getWinningOptionIndex()));
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 2; i++)
+            {
                 System.out.println("  Total shares of " + event.getOptionName(i) + ": " + event.getQuantity(i));
             }
         }
     }
 
-    private static String formatCommissionType(CommissionType type) {
-        if (type == CommissionType.ON_PURCHASE) {
+    private static String formatCommissionType(CommissionType type)
+    {
+        if (type == CommissionType.ON_PURCHASE)
+        {
             return "On purchase";
-        } else {
+        }
+        else
+        {
             return "On close";
         }
     }

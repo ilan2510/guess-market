@@ -1,24 +1,29 @@
 package guessmarket.engine;
 
-public class PurchaseResult {
+public class PurchaseResult
+{
 
     private final double sharesCost;
     private final double feeCost;
 
-    public PurchaseResult(double sharesCost, double feeCost) {
+    public PurchaseResult(double sharesCost, double feeCost)
+    {
         this.sharesCost = sharesCost;
         this.feeCost = feeCost;
     }
 
-    public double getSharesCost() {
+    public double getSharesCost()
+    {
         return sharesCost;
     }
 
-    public double getFeeCost() {
+    public double getFeeCost()
+    {
         return feeCost;
     }
 
-    public double getTotalPaid() {
+    public double getTotalPaid()
+    {
         return sharesCost + feeCost;
     }
 }

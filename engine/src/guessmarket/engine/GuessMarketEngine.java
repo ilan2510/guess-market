@@ -1,14 +1,20 @@
 package guessmarket.engine;
 
+import guessmarket.engine.exception.EngineException;
+import guessmarket.engine.exception.InvalidEventFileException;
+
 import java.util.List;
 
-public interface GuessMarketEngine {
+public interface GuessMarketEngine
+{
 
-    List<Event> loadFile(String filePath) throws InvalidEventFileException;
+    List<EventInfo> loadFile(String filePath) throws InvalidEventFileException;
 
-    List<Event> getAllEvents() throws EngineException;
+    List<EventInfo> getAllEvents() throws EngineException;
 
-    List<Event> getActiveEvents() throws EngineException;
+    List<EventInfo> getActiveEvents() throws EngineException;
+
+    EventInfo getEventInfo(int eventId) throws EngineException;
 
     PurchaseResult buyShares(int eventId, int optionIndex, int quantity) throws EngineException;
 

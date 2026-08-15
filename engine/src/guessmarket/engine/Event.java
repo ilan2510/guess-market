@@ -3,7 +3,8 @@ package guessmarket.engine;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Event {
+public class Event
+{
 
     private final int id;
     private final String name;
@@ -21,7 +22,8 @@ public class Event {
     private int winningOptionIndex;
 
     public Event(int id, String name, String description, int commissionPercent,
-                 CommissionType commissionType, String optionAName, String optionBName, int liquidityB) {
+                 CommissionType commissionType, String optionAName, String optionBName, int liquidityB)
+    {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -39,79 +41,115 @@ public class Event {
         this.winningOptionIndex = -1;
     }
 
-    public int getId() {
+    public int getId()
+    {
         return id;
     }
 
-    public String getName() {
+    public String getName()
+    {
         return name;
     }
 
-    public String getDescription() {
+    public String getDescription()
+    {
         return description;
     }
 
-    public int getCommissionPercent() {
+    public int getCommissionPercent()
+    {
         return commissionPercent;
     }
 
-    public CommissionType getCommissionType() {
+    public CommissionType getCommissionType()
+    {
         return commissionType;
     }
 
-    public String getOptionName(int optionIndex) {
+    public String getOptionName(int optionIndex)
+    {
         return optionNames[optionIndex];
     }
 
-    public int getLiquidityB() {
+    public int getLiquidityB()
+    {
         return liquidityB;
     }
 
-    public int getQuantity(int optionIndex) {
+    public int getQuantity(int optionIndex)
+    {
         return quantities[optionIndex];
     }
 
-    public double getCurrentPrice(int optionIndex) {
+    public double getCurrentPrice(int optionIndex)
+    {
         // there are only 2 options (index 0 or 1), so "1 - optionIndex" always gives the other one
         int otherOptionIndex = 1 - optionIndex;
         return Lmsr.price(quantities[optionIndex], quantities[otherOptionIndex], liquidityB);
     }
 
-    public List<Trade> getTradeHistory() {
+    public List<Trade> getTradeHistory()
+    {
         return tradeHistory;
     }
 
-    public double getAccountBalance() {
+    public double getAccountBalance()
+    {
         return accountBalance;
     }
 
-    public double getTotalFeesCollected() {
+    public double getTotalFeesCollected()
+    {
         return totalFeesCollected;
     }
 
-    public boolean isClosed() {
+    public boolean isClosed()
+    {
         return closed;
     }
 
-    public int getWinningOptionIndex() {
+    public int getWinningOptionIndex()
+    {
         return winningOptionIndex;
     }
 
-    public void recordPurchase(int optionIndex, int quantity, double pricePaid) {
+    void recordPurchase(int optionIndex, int quantity, double pricePaid)
+    {
         quantities[optionIndex] += quantity;
         tradeHistory.add(new Trade(optionNames[optionIndex], quantity, pricePaid));
     }
 
-    public void addToAccountBalance(double amount) {
+    void addToAccountBalance(double amount)
+    {
         accountBalance += amount;
     }
 
-    public void addFeesCollected(double amount) {
+    void addFeesCollected(double amount)
+    {
         totalFeesCollected += amount;
     }
 
-    public void close(int winningOptionIndex) {
+    void close(int winningOptionIndex)
+    {
         this.closed = true;
         this.winningOptionIndex = winningOptionIndex;
+    }
+
+    // Builds a read-only snapshot of this event's current data, safe to hand out to the UI.
+    public EventInfo toEventInfo()
+    {
+        String[] optionNamesCopy = { optionNames[0], optionNames[1] };
+        double[] optionPrices = { getCurrentPrice(0), getCurrentPrice(1) };
+        int[] optionQuantitiesCopy = { quantities[0], quantities[1] };
+
+        List<TradeInfo> tradeInfoHistory = new ArrayList<>();
+        for (Trade trade : tradeHistory)
+        {
+            tradeInfoHistory.add(trade.toTradeInfo());
+        }
+
+        return new EventInfo(id, name, description, commissionPercent, commissionType,
+                optionNamesCopy, optionPrices, optionQuantitiesCopy,
+                accountBalance, totalFeesCollected, closed, winningOptionIndex, tradeInfoHistory);
     }
 }

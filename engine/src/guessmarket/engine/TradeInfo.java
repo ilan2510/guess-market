@@ -1,13 +1,14 @@
 package guessmarket.engine;
 
-public class Trade
+// DTO: a plain, read-only copy of a trade, safe to hand out to the UI.
+public class TradeInfo
 {
 
     private final String optionName;
     private final int quantity;
     private final double pricePaid;
 
-    public Trade(String optionName, int quantity, double pricePaid)
+    public TradeInfo(String optionName, int quantity, double pricePaid)
     {
         this.optionName = optionName;
         this.quantity = quantity;
@@ -27,10 +28,5 @@ public class Trade
     public double getPricePaid()
     {
         return pricePaid;
-    }
-
-    public TradeInfo toTradeInfo()
-    {
-        return new TradeInfo(optionName, quantity, pricePaid);
     }
 }
