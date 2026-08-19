@@ -3,6 +3,12 @@ package guessmarket.engine;
 import guessmarket.engine.exception.EngineException;
 import guessmarket.engine.exception.InvalidEventFileException;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +16,7 @@ public class GuessMarketEngineImpl implements GuessMarketEngine
 {
 
     private static final double WINNING_SHARE_PAYOUT = 1.0;
+    private static final String SAVE_FILE_EXTENSION = ".gmstate";
 
     private final EventFileLoader fileLoader;
     private List<Event> events;
@@ -122,6 +129,40 @@ public class GuessMarketEngineImpl implements GuessMarketEngine
         double actualPayout = totalOwedToWinners - feeAmount;
         event.addToAccountBalance(-actualPayout);
         event.close(winningOptionIndex);
+    }
+
+    @Override
+    public void saveStateToFile(String filePath) throws EngineException
+    {
+        requireEventsLoaded();
+        String fullPath = filePath.trim() + SAVE_FILE_EXTENSION;
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(fullPath)))
+        {
+            out.writeObject(events);
+        }
+        catch (IOException e)
+        {
+            throw new EngineException("Could not save the system state: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void loadStateFromFile(String filePath) throws EngineException
+    {
+        String fullPath = filePath.trim() + SAVE_FILE_EXTENSION;
+        if (!new File(fullPath).exists())
+        {
+            throw new EngineException("No saved state file found at: " + fullPath);
+        }
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(fullPath)))
+        {
+            List<Event> loadedEvents = (List<Event>) in.readObject();
+            this.events = loadedEvents;
+        }
+        catch (IOException | ClassNotFoundException e)
+        {
+            throw new EngineException("Could not load the saved state: " + e.getMessage());
+        }
     }
 
     private List<EventInfo> toEventInfoList(List<Event> eventList)

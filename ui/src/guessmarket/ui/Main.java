@@ -46,8 +46,14 @@ public class Main
                     running = false;
                     System.out.println("Goodbye!");
                     break;
+                case "7":
+                    handleSaveState();
+                    break;
+                case "8":
+                    handleLoadState();
+                    break;
                 default:
-                    System.out.println("Invalid choice. Please enter a number between 1 and 6.");
+                    System.out.println("Invalid choice. Please enter a number between 1 and 8.");
             }
         }
         scanner.close();
@@ -74,6 +80,8 @@ public class Main
         System.out.println("4. Participate in an event (buy shares)");
         System.out.println("5. Close event");
         System.out.println("6. Exit");
+        System.out.println("7. Save system state (bonus)");
+        System.out.println("8. Load a saved system state (bonus)");
         System.out.print("Choose a command: ");
     }
 
@@ -198,6 +206,46 @@ public class Main
             System.out.println("Event closed.");
             EventInfo updated = engine.getEventInfo(chosen.getId());
             printEventStatus(updated);
+        }
+        catch (EngineException e)
+        {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private static void handleSaveState()
+    {
+        System.out.print("Enter the full path and file name to save to (without extension): ");
+        String path = readLine().trim();
+        if (path.isEmpty())
+        {
+            System.out.println("The file name cannot be empty.");
+            return;
+        }
+        try
+        {
+            engine.saveStateToFile(path);
+            System.out.println("System state saved successfully.");
+        }
+        catch (EngineException e)
+        {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private static void handleLoadState()
+    {
+        System.out.print("Enter the full path and file name to load from (without extension): ");
+        String path = readLine().trim();
+        if (path.isEmpty())
+        {
+            System.out.println("The file name cannot be empty.");
+            return;
+        }
+        try
+        {
+            engine.loadStateFromFile(path);
+            System.out.println("System state loaded successfully.");
         }
         catch (EngineException e)
         {

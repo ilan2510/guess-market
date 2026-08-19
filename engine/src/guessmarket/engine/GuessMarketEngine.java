@@ -19,4 +19,8 @@ public interface GuessMarketEngine
     PurchaseResult buyShares(int eventId, int optionIndex, int quantity) throws EngineException;
 
     void closeEvent(int eventId, int winningOptionIndex) throws EngineException;
+
+    void saveStateToFile(String filePath) throws EngineException;
+
+    void loadStateFromFile(String filePath) throws EngineException;
 }
