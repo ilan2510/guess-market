@@ -23,6 +23,12 @@ The project has two parts:
 4. Participate in an event (buy shares)
 5. Close event
 6. Exit
+7. Save system state (bonus)
+8. Load a saved system state (bonus)
+
+Bonus implemented: Save/Load system state. Command 7 saves everything about the
+current session to a file (not just the original XML data), and command 8 reads
+it back and continues from where it left off.
 
 ## How to run
 
