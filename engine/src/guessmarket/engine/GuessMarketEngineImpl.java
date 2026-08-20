@@ -159,7 +159,11 @@ public class GuessMarketEngineImpl implements GuessMarketEngine
             List<Event> loadedEvents = (List<Event>) in.readObject();
             this.events = loadedEvents;
         }
-        catch (IOException | ClassNotFoundException e)
+        catch (IOException e)
+        {
+            throw new EngineException("Could not load the saved state: " + e.getMessage());
+        }
+        catch (ClassNotFoundException e)
         {
             throw new EngineException("Could not load the saved state: " + e.getMessage());
         }
