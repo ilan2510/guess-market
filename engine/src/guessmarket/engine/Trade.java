@@ -1,19 +1,26 @@
 package guessmarket.engine;
 
-import java.io.Serializable;
-
-public class Trade implements Serializable
+public class Trade
 {
 
+    private final String userName;
     private final String optionName;
     private final int quantity;
     private final double pricePaid;
+    private final double fee;
 
-    public Trade(String optionName, int quantity, double pricePaid)
+    public Trade(String userName, String optionName, int quantity, double pricePaid, double fee)
     {
+        this.userName = userName;
         this.optionName = optionName;
         this.quantity = quantity;
         this.pricePaid = pricePaid;
+        this.fee = fee;
+    }
+
+    public String getUserName()
+    {
+        return userName;
     }
 
     public String getOptionName()
@@ -31,8 +38,13 @@ public class Trade implements Serializable
         return pricePaid;
     }
 
+    public double getFee()
+    {
+        return fee;
+    }
+
     public TradeInfo toTradeInfo()
     {
-        return new TradeInfo(optionName, quantity, pricePaid);
+        return new TradeInfo(userName, optionName, quantity, pricePaid, fee);
     }
 }

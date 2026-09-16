@@ -1,0 +1,50 @@
+<Guess-Market xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="GM-EX2-Schema.xsd">
+<GM-events>
+<GM-event name="Mint Test Event">
+<id>1</id>
+<description>Event just for testing the mint path in isolation</description>
+<commission type="on-purchase">20</commission>
+<GM-options>
+<GM-option>Yes</GM-option>
+<GM-option>No</GM-option>
+</GM-options>
+<GM-method>
+<GM-order-book allow-mint="true" initial="10" d="1"/>
+</GM-method>
+</GM-event>
+<GM-event name="Low Funds Event">
+<id>2</id>
+<description>Event whose MM cannot afford to open it</description>
+<commission type="on-purchase">5</commission>
+<GM-options>
+<GM-option>Yes</GM-option>
+<GM-option>No</GM-option>
+</GM-options>
+<GM-method>
+<GM-LMSR>
+<b>100000</b>
+</GM-LMSR>
+</GM-method>
+</GM-event>
+</GM-events>
+<GM-users>
+<GM-user name="Poor">
+<initial-cash>5</initial-cash>
+<GM-market-maker>
+<event id="2"/>
+</GM-market-maker>
+</GM-user>
+<GM-user name="Owner">
+<initial-cash>50</initial-cash>
+<GM-market-maker>
+<event id="1"/>
+</GM-market-maker>
+</GM-user>
+<GM-user name="Buyer1">
+<initial-cash>50</initial-cash>
+</GM-user>
+<GM-user name="Buyer2">
+<initial-cash>50</initial-cash>
+</GM-user>
+</GM-users>
+</Guess-Market>

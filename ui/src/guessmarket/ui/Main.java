@@ -1,409 +1,262 @@
 package guessmarket.ui;
 
-import java.util.List;
-import java.util.Scanner;
-
-import guessmarket.engine.CommissionType;
 import guessmarket.engine.EventInfo;
 import guessmarket.engine.GuessMarketEngine;
 import guessmarket.engine.GuessMarketEngineImpl;
-import guessmarket.engine.PurchaseResult;
-import guessmarket.engine.TradeInfo;
-import guessmarket.engine.exception.EngineException;
-import guessmarket.engine.exception.InvalidEventFileException;
 
-public class Main
+import javafx.animation.FadeTransition;
+import javafx.application.Application;
+import javafx.concurrent.Task;
+import javafx.geometry.Insets;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
+import javafx.util.Duration;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.List;
+
+public class Main extends Application
 {
 
-    private static final Scanner scanner = new Scanner(System.in);
-    private static final GuessMarketEngine engine = new GuessMarketEngineImpl();
+    private static final int SIMULATED_LOAD_DELAY_MS = 1500;
+    private static final Duration ANIMATION_DURATION = Duration.seconds(0.5);
+
+    private static final String DARK_THEME_CSS =
+            ".root { -fx-background-color: #2b2b2b; } "
+            + ".button { -fx-background-color: #444444; -fx-text-fill: #ffffff; } "
+            + ".label { -fx-font-size: 13px; -fx-font-family: 'Consolas'; } "
+            + ".check-box { -fx-text-fill: #e0e0e0; } "
+            + ".choice-box { -fx-background-color: #444444; -fx-mark-color: #e0e0e0; } "
+            + ".choice-box .label { -fx-text-fill: #e0e0e0; }";
+
+    private static final String OCEAN_THEME_CSS =
+            ".root { -fx-background-color: #d6eaf8; } "
+            + ".button { -fx-background-color: #2980b9; -fx-text-fill: #ffffff; } "
+            + ".label { -fx-font-size: 13px; -fx-font-family: 'Georgia'; -fx-text-fill: #154360; } "
+            + ".check-box { -fx-text-fill: #154360; } "
+            + ".choice-box, .choice-box .label { -fx-text-fill: #154360; }";
+
+    private final GuessMarketEngine engine = new GuessMarketEngineImpl();
+
+    private Label filePathLabel;
+    private Button loadButton;
+    private ProgressBar loadProgressBar;
+    private CheckBox animationsCheckBox;
+    private ChoiceBox<String> themeChoiceBox;
+    private TabPane tabPane;
+    private EventsTab eventsTab;
+    private UsersTab usersTab;
+    private Stage primaryStage;
+    private Scene scene;
 
     public static void main(String[] args)
     {
-        boolean running = true;
-        while (running)
-        {
-            printMenu();
-            String choice = readLine().trim();
-            switch (choice)
-            {
-                case "1":
-                    handleLoadFile();
-                    break;
-                case "2":
-                    handleDisplayEvents();
-                    break;
-                case "3":
-                    handleEventStatus();
-                    break;
-                case "4":
-                    handleParticipate();
-                    break;
-                case "5":
-                    handleCloseEvent();
-                    break;
-                case "6":
-                    running = false;
-                    System.out.println("Goodbye!");
-                    break;
-                case "7":
-                    handleSaveState();
-                    break;
-                case "8":
-                    handleLoadState();
-                    break;
-                default:
-                    System.out.println("Invalid choice. Please enter a number between 1 and 8.");
-            }
-        }
-        scanner.close();
+        launch(args);
     }
 
-    private static String readLine()
+    @Override
+    public void start(Stage stage)
     {
-        if (!scanner.hasNextLine())
-        {
-            System.out.println();
-            System.out.println("No more input. Exiting.");
-            System.exit(0);
-        }
-        return scanner.nextLine();
+        this.primaryStage = stage;
+
+        eventsTab = new EventsTab(engine, this);
+        usersTab = new UsersTab(engine, this);
+
+        loadButton = new Button("Load File");
+        loadButton.setOnAction(event -> handleLoadFile());
+
+        filePathLabel = new Label("No file loaded yet.");
+
+        loadProgressBar = new ProgressBar(0);
+        loadProgressBar.setVisible(false);
+
+        animationsCheckBox = new CheckBox("Enable animations");
+        animationsCheckBox.setSelected(true);
+
+        themeChoiceBox = new ChoiceBox<>();
+        themeChoiceBox.getItems().addAll("Default", "Dark", "Ocean");
+        themeChoiceBox.setValue("Default");
+        themeChoiceBox.setOnAction(event -> applyTheme(themeChoiceBox.getValue()));
+
+        HBox topBar = new HBox(10, loadButton, filePathLabel, loadProgressBar, animationsCheckBox,
+                new Label("Theme:"), themeChoiceBox);
+        topBar.setPadding(new Insets(10));
+
+        Tab eventsTabControl = new Tab("Events", eventsTab.getContent());
+        eventsTabControl.setClosable(false);
+        Tab usersTabControl = new Tab("Users", usersTab.getContent());
+        usersTabControl.setClosable(false);
+
+        tabPane = new TabPane(eventsTabControl, usersTabControl);
+
+        BorderPane root = new BorderPane();
+        root.setTop(topBar);
+        root.setCenter(tabPane);
+
+        scene = new Scene(root, 1100, 700);
+        stage.setScene(scene);
+        stage.setTitle("Guess Market");
+        stage.show();
     }
 
-    private static void printMenu()
+    private void handleLoadFile()
     {
-        System.out.println();
-        System.out.println("===== Guess Market =====");
-        System.out.println("1. Load events file");
-        System.out.println("2. Display events");
-        System.out.println("3. Event trading status");
-        System.out.println("4. Participate in an event (buy shares)");
-        System.out.println("5. Close event");
-        System.out.println("6. Exit");
-        System.out.println("7. Save system state (bonus)");
-        System.out.println("8. Load a saved system state (bonus)");
-        System.out.print("Choose a command: ");
-    }
-
-    private static void handleLoadFile()
-    {
-        System.out.print("Enter the full path to the XML events file: ");
-        String path = readLine();
-        try
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Choose a Guess Market events file");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("XML files", "*.xml"));
+        File file = fileChooser.showOpenDialog(primaryStage);
+        if (file == null)
         {
-            List<EventInfo> loaded = engine.loadFile(path);
-            System.out.println("File loaded successfully. " + loaded.size() + " event(s) loaded.");
-        }
-        catch (InvalidEventFileException e)
-        {
-            System.out.println("Could not load file: " + e.getMessage());
-        }
-    }
-
-    private static void handleDisplayEvents()
-    {
-        try
-        {
-            List<EventInfo> allEvents = engine.getAllEvents();
-            printEventList(allEvents);
-        }
-        catch (EngineException e)
-        {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    private static void handleEventStatus()
-    {
-        try
-        {
-            List<EventInfo> allEvents = engine.getAllEvents();
-            EventInfo chosen = chooseEventFromList(allEvents);
-            if (chosen == null)
-            {
-                return;
-            }
-            printEventStatus(chosen);
-        }
-        catch (EngineException e)
-        {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    private static void handleParticipate()
-    {
-        try
-        {
-            List<EventInfo> activeEvents = engine.getActiveEvents();
-            EventInfo chosen = chooseEventFromList(activeEvents);
-            if (chosen == null)
-            {
-                return;
-            }
-            printEventStatus(chosen);
-
-            System.out.println();
-            System.out.println("1. " + chosen.getOptionName(0));
-            System.out.println("2. " + chosen.getOptionName(1));
-            System.out.print("Which option do you believe in? ");
-            int optionChoice = readOptionChoice();
-            if (optionChoice == -1)
-            {
-                return;
-            }
-
-            System.out.print("How many shares do you want to buy? ");
-            int quantity = readPositiveInt();
-            if (quantity == -1)
-            {
-                return;
-            }
-
-            PurchaseResult result = engine.buyShares(chosen.getId(), optionChoice - 1, quantity);
-            System.out.println();
-            System.out.printf("Shares cost: %.2f%n", result.getSharesCost());
-            if (result.getFeeCost() > 0)
-            {
-                System.out.printf("Fee: %.2f%n", result.getFeeCost());
-            }
-            System.out.printf("Total paid: %.2f%n", result.getTotalPaid());
-
-            EventInfo updated = engine.getEventInfo(chosen.getId());
-            printEventStatus(updated);
-        }
-        catch (EngineException e)
-        {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    private static void handleCloseEvent()
-    {
-        try
-        {
-            List<EventInfo> activeEvents = engine.getActiveEvents();
-            EventInfo chosen = chooseEventFromList(activeEvents);
-            if (chosen == null)
-            {
-                return;
-            }
-            printEventStatus(chosen);
-
-            System.out.println();
-            System.out.println("Which option actually happened?");
-            System.out.println("1. " + chosen.getOptionName(0));
-            System.out.println("2. " + chosen.getOptionName(1));
-            System.out.print("Choose the winning option: ");
-            int optionChoice = readOptionChoice();
-            if (optionChoice == -1)
-            {
-                return;
-            }
-
-            engine.closeEvent(chosen.getId(), optionChoice - 1);
-            System.out.println();
-            System.out.println("Event closed.");
-            EventInfo updated = engine.getEventInfo(chosen.getId());
-            printEventStatus(updated);
-        }
-        catch (EngineException e)
-        {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    private static void handleSaveState()
-    {
-        System.out.print("Enter the full path and file name to save to (without extension): ");
-        String path = readLine().trim();
-        if (path.isEmpty())
-        {
-            System.out.println("The file name cannot be empty.");
             return;
         }
-        try
+
+        String path = file.getAbsolutePath();
+
+        Task<List<EventInfo>> loadTask = new Task<List<EventInfo>>()
         {
-            engine.saveStateToFile(path);
-            System.out.println("System state saved successfully.");
-        }
-        catch (EngineException e)
+            @Override
+            protected List<EventInfo> call() throws Exception
+            {
+                Thread.sleep(SIMULATED_LOAD_DELAY_MS);
+                return engine.loadFile(path);
+            }
+        };
+
+        loadTask.setOnRunning(event ->
         {
-            System.out.println(e.getMessage());
-        }
+            loadButton.setDisable(true);
+            loadProgressBar.setVisible(true);
+            loadProgressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
+        });
+
+        loadTask.setOnSucceeded(event ->
+        {
+            loadButton.setDisable(false);
+            loadProgressBar.setVisible(false);
+            filePathLabel.setText(path);
+            refreshAll();
+            fadeIn(tabPane);
+        });
+
+        loadTask.setOnFailed(event ->
+        {
+            loadButton.setDisable(false);
+            loadProgressBar.setVisible(false);
+            Throwable error = loadTask.getException();
+            showError("Could not load file", error.getMessage());
+        });
+
+        Thread thread = new Thread(loadTask);
+        thread.setDaemon(true);
+        thread.start();
     }
 
-    private static void handleLoadState()
+    void refreshAll()
     {
-        System.out.print("Enter the full path and file name to load from (without extension): ");
-        String path = readLine().trim();
-        if (path.isEmpty())
+        eventsTab.refresh();
+        usersTab.refresh();
+    }
+
+    boolean isAnimationsEnabled()
+    {
+        return animationsCheckBox.isSelected();
+    }
+
+    void fadeIn(Node node)
+    {
+        if (!isAnimationsEnabled())
         {
-            System.out.println("The file name cannot be empty.");
             return;
         }
-        try
-        {
-            engine.loadStateFromFile(path);
-            System.out.println("System state loaded successfully.");
-        }
-        catch (EngineException e)
-        {
-            System.out.println(e.getMessage());
-        }
+        FadeTransition fade = new FadeTransition(ANIMATION_DURATION, node);
+        fade.setFromValue(0);
+        fade.setToValue(1);
+        fade.play();
     }
 
-    private static EventInfo chooseEventFromList(List<EventInfo> list)
+    private void applyTheme(String themeName)
     {
-        if (list.isEmpty())
+        if (themeName.equals("Default"))
         {
-            System.out.println("There are no events to choose from.");
-            return null;
+            scene.getStylesheets().clear();
+            return;
         }
-        for (int i = 0; i < list.size(); i++)
-        {
-            System.out.println();
-            System.out.println("Choice " + (i + 1) + ":");
-            printEventDetails(list.get(i));
-        }
-        System.out.println();
-        System.out.print("Choose an event by number: ");
-        String input = readLine().trim();
-        int choice;
-        try
-        {
-            choice = Integer.parseInt(input);
-        }
-        catch (NumberFormatException e)
-        {
-            System.out.println("Please enter a number.");
-            return null;
-        }
-        if (choice < 1 || choice > list.size())
-        {
-            System.out.println("Please enter a number between 1 and " + list.size() + ".");
-            return null;
-        }
-        return list.get(choice - 1);
-    }
 
-    private static int readOptionChoice()
-    {
-        String input = readLine().trim();
-        try
+        String css;
+        if (themeName.equals("Dark"))
         {
-            int choice = Integer.parseInt(input);
-            if (choice != 1 && choice != 2)
-            {
-                System.out.println("Please enter 1 or 2.");
-                return -1;
-            }
-            return choice;
-        }
-        catch (NumberFormatException e)
-        {
-            System.out.println("Please enter a number (1 or 2).");
-            return -1;
-        }
-    }
-
-    private static int readPositiveInt()
-    {
-        String input = readLine().trim();
-        try
-        {
-            int value = Integer.parseInt(input);
-            if (value <= 0)
-            {
-                System.out.println("Please enter a positive whole number.");
-                return -1;
-            }
-            return value;
-        }
-        catch (NumberFormatException e)
-        {
-            System.out.println("Please enter a whole number.");
-            return -1;
-        }
-    }
-
-    private static void printEventList(List<EventInfo> eventsToPrint)
-    {
-        for (EventInfo event : eventsToPrint)
-        {
-            System.out.println();
-            printEventDetails(event);
-        }
-    }
-
-    private static void printEventDetails(EventInfo event)
-    {
-        String status;
-        if (event.isClosed())
-        {
-            status = "Closed";
+            css = DARK_THEME_CSS;
         }
         else
         {
-            status = "Active";
-        }
-        System.out.println("Event number: " + event.getId());
-        System.out.println("Name: " + event.getName());
-        System.out.println("Description: " + event.getDescription());
-        System.out.println("Commission: " + event.getCommissionPercent() + "%");
-        System.out.println("Commission collected: " + formatCommissionType(event.getCommissionType()));
-        System.out.println("Options: " + event.getOptionName(0) + ", " + event.getOptionName(1));
-        System.out.println("Status: " + status);
-    }
-
-    private static void printEventStatus(EventInfo event)
-    {
-        System.out.println();
-        System.out.println("Status for event: " + event.getName());
-        for (int i = 0; i < 2; i++)
-        {
-            System.out.printf("  %s: price %.2f, shares bought %d%n",
-                    event.getOptionName(i), event.getCurrentPrice(i), event.getQuantity(i));
-        }
-        System.out.printf("Event account balance: %.2f%n", event.getAccountBalance());
-        System.out.printf("Total fees collected: %.2f%n", event.getTotalFeesCollected());
-
-        System.out.println("Trade history (most recent first):");
-        List<TradeInfo> history = event.getTradeHistory();
-        if (history.isEmpty())
-        {
-            System.out.println("  No trades yet.");
-        }
-        else
-        {
-            for (int i = history.size() - 1; i >= 0; i--)
-            {
-                TradeInfo trade = history.get(i);
-                System.out.printf("  %s: %d shares, paid %.2f%n",
-                        trade.getOptionName(), trade.getQuantity(), trade.getPricePaid());
-            }
+            css = OCEAN_THEME_CSS;
         }
 
-        if (event.isClosed())
+        try
         {
-            System.out.println("This event is closed.");
-            System.out.println("Winning option: " + event.getOptionName(event.getWinningOptionIndex()));
-            for (int i = 0; i < 2; i++)
-            {
-                System.out.println("  Total shares of " + event.getOptionName(i) + ": " + event.getQuantity(i));
-            }
+            File cssFile = File.createTempFile("guessmarket-theme", ".css");
+            cssFile.deleteOnExit();
+            FileWriter writer = new FileWriter(cssFile);
+            writer.write(css);
+            writer.close();
+            scene.getStylesheets().setAll(cssFile.toURI().toString());
+        }
+        catch (IOException e)
+        {
+            showError("Could not apply theme", e.getMessage());
         }
     }
 
-    private static String formatCommissionType(CommissionType type)
+    static void preventFullDeselection(ToggleGroup group)
     {
-        if (type == CommissionType.ON_PURCHASE)
+        group.selectedToggleProperty().addListener((observable, oldToggle, newToggle) ->
         {
-            return "On purchase";
-        }
-        else
+            if (newToggle == null && oldToggle != null)
+            {
+                oldToggle.setSelected(true);
+            }
+        });
+    }
+
+    static String formatStat(Double value)
+    {
+        if (value == null)
         {
-            return "On close";
+            return "-";
         }
+        return String.format("%.2f", value);
+    }
+
+    void showError(String title, String message)
+    {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    void showInfo(String title, String message)
+    {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }

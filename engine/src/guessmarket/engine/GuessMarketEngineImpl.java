@@ -3,12 +3,6 @@ package guessmarket.engine;
 import guessmarket.engine.exception.EngineException;
 import guessmarket.engine.exception.InvalidEventFileException;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,23 +10,61 @@ public class GuessMarketEngineImpl implements GuessMarketEngine
 {
 
     private static final double WINNING_SHARE_PAYOUT = 1.0;
-    private static final String SAVE_FILE_EXTENSION = ".gmstate";
 
     private final EventFileLoader fileLoader;
     private List<Event> events;
+    private List<User> users;
 
     public GuessMarketEngineImpl()
     {
         this.fileLoader = new EventFileLoader();
         this.events = new ArrayList<>();
+        this.users = new ArrayList<>();
     }
 
     @Override
     public List<EventInfo> loadFile(String filePath) throws InvalidEventFileException
     {
-        List<Event> loadedEvents = fileLoader.load(filePath);
-        this.events = loadedEvents;
-        return toEventInfoList(loadedEvents);
+        LoadResult result = fileLoader.load(filePath);
+        this.events = result.getEvents();
+        this.users = result.getUsers();
+        return toEventInfoList(events);
+    }
+
+    @Override
+    public List<UserInfo> getAllUsers() throws EngineException
+    {
+        requireUsersLoaded();
+        List<UserInfo> result = new ArrayList<>();
+        for (User user : users)
+        {
+            result.add(user.toUserInfo());
+        }
+        return result;
+    }
+
+    @Override
+    public UserInfo getUserInfo(String userName) throws EngineException
+    {
+        return findUserByName(userName).toUserInfo();
+    }
+
+    @Override
+    public List<EventInfo> getEventsForUser(String userName) throws EngineException
+    {
+        findUserByName(userName);
+        List<EventInfo> result = new ArrayList<>();
+        for (Event event : events)
+        {
+            boolean isMm = event.getMmUserName().equals(userName);
+            boolean everParticipated = eventInvolvesUser(event, userName);
+            boolean isActive = event.getStatus() == EventStatus.ACTIVE;
+            if (isMm || everParticipated || isActive)
+            {
+                result.add(event.toEventInfo());
+            }
+        }
+        return result;
     }
 
     @Override
@@ -43,35 +75,98 @@ public class GuessMarketEngineImpl implements GuessMarketEngine
     }
 
     @Override
-    public List<EventInfo> getActiveEvents() throws EngineException
-    {
-        requireEventsLoaded();
-        List<Event> activeEvents = new ArrayList<>();
-        for (Event event : events)
-        {
-            if (!event.isClosed())
-            {
-                activeEvents.add(event);
-            }
-        }
-        return toEventInfoList(activeEvents);
-    }
-
-    @Override
     public EventInfo getEventInfo(int eventId) throws EngineException
     {
-        Event event = findEventById(eventId);
-        return event.toEventInfo();
+        return findEventById(eventId).toEventInfo();
     }
 
     @Override
-    public PurchaseResult buyShares(int eventId, int optionIndex, int quantity) throws EngineException
+    public void startEvent(int eventId, String actingUserName) throws EngineException
     {
         Event event = findEventById(eventId);
+        User user = findUserByName(actingUserName);
+        requireNotBlocked(user);
 
-        if (event.isClosed())
+        if (!event.getMmUserName().equals(actingUserName))
         {
-            throw new EngineException("This event is already closed and cannot accept new trades.");
+            throw new EngineException("Only " + event.getMmUserName() + " (the market maker) can start this event.");
+        }
+        if (event.getStatus() != EventStatus.NOT_STARTED)
+        {
+            throw new EngineException("This event has already been started.");
+        }
+
+        double requiredAmount;
+        if (event.getMethod() == TradingMethod.LMSR)
+        {
+            requiredAmount = Lmsr.cost(0, 0, event.getLiquidityB());
+        }
+        else
+        {
+            requiredAmount = event.getInitialInvestment();
+        }
+
+        if (user.getBalance() < requiredAmount)
+        {
+            throw new EngineException("You need " + String.format("%.2f", requiredAmount)
+                    + " to open this event, but your balance is only " + String.format("%.2f", user.getBalance()) + ".");
+        }
+
+        user.subtractFromBalance(requiredAmount);
+        event.addToAccountBalance(requiredAmount);
+
+        if (event.getMethod() == TradingMethod.ORDER_BOOK && event.getBaseValueD() > 0)
+        {
+            int pairs = event.getInitialInvestment() / event.getBaseValueD();
+            double costPerOption = requiredAmount / 2.0;
+            event.findOrCreateHolding(actingUserName, 0).addShares(pairs, costPerOption, 0);
+            event.findOrCreateHolding(actingUserName, 1).addShares(pairs, costPerOption, 0);
+        }
+
+        event.activate();
+    }
+
+    @Override
+    public void closeEvent(int eventId, String actingUserName, int winningOptionIndex) throws EngineException
+    {
+        Event event = findEventById(eventId);
+        User user = findUserByName(actingUserName);
+        requireNotBlocked(user);
+
+        if (!event.getMmUserName().equals(actingUserName))
+        {
+            throw new EngineException("Only " + event.getMmUserName() + " (the market maker) can close this event.");
+        }
+        if (event.getStatus() != EventStatus.ACTIVE)
+        {
+            throw new EngineException("This event is not active, so it cannot be closed.");
+        }
+        validateOptionIndex(winningOptionIndex);
+
+        if (event.getMethod() == TradingMethod.LMSR)
+        {
+            closeLmsrEvent(event, user, winningOptionIndex);
+        }
+        else
+        {
+            closeOrderBookEvent(event, user, winningOptionIndex);
+        }
+    }
+
+    @Override
+    public PurchaseResult buyShares(int eventId, String actingUserName, int optionIndex, int quantity) throws EngineException
+    {
+        Event event = findEventById(eventId);
+        User user = findUserByName(actingUserName);
+        requireNotBlocked(user);
+
+        if (event.getMethod() != TradingMethod.LMSR)
+        {
+            throw new EngineException("This event uses Order Book trading, not LMSR. Submit an order instead.");
+        }
+        if (event.getStatus() != EventStatus.ACTIVE)
+        {
+            throw new EngineException("This event is not active, trading is not allowed right now.");
         }
         validateOptionIndex(optionIndex);
         if (quantity <= 0)
@@ -94,79 +189,169 @@ public class GuessMarketEngineImpl implements GuessMarketEngine
             feeCost = sharesCost * event.getCommissionPercent() / 100.0;
         }
 
-        event.recordPurchase(optionIndex, quantity, sharesCost);
+        user.subtractFromBalance(sharesCost + feeCost);
         event.addToAccountBalance(sharesCost);
         if (feeCost > 0)
         {
-            event.addToAccountBalance(feeCost);
+            User mm = findUserByName(event.getMmUserName());
+            mm.addToBalance(feeCost);
             event.addFeesCollected(feeCost);
         }
+        event.recordLmsrPurchase(actingUserName, optionIndex, quantity, sharesCost, feeCost);
 
         return new PurchaseResult(sharesCost, feeCost);
     }
 
     @Override
-    public void closeEvent(int eventId, int winningOptionIndex) throws EngineException
+    public OrderSubmitResult submitOrder(int eventId, String actingUserName, int optionIndex, OrderSide side,
+            int quantity, double price) throws EngineException
     {
         Event event = findEventById(eventId);
+        User user = findUserByName(actingUserName);
+        requireNotBlocked(user);
 
-        if (event.isClosed())
+        if (event.getMethod() != TradingMethod.ORDER_BOOK)
         {
-            throw new EngineException("This event is already closed.");
+            throw new EngineException("This event uses LMSR trading, not Order Book. Buy shares instead.");
         }
-        validateOptionIndex(winningOptionIndex);
 
-        int winningShares = event.getQuantity(winningOptionIndex);
-        double totalOwedToWinners = winningShares * WINNING_SHARE_PAYOUT;
+        return OrderBookEngine.submitOrder(event, user, users, optionIndex, side, quantity, price);
+    }
 
-        double feeAmount = 0;
+    private void closeLmsrEvent(Event event, User mm, int winningOptionIndex) throws EngineException
+    {
+        double originalBalance = event.getAccountBalance();
+        int totalWinningShares = event.getQuantity(winningOptionIndex);
+        double owedToWinners = totalWinningShares * WINNING_SHARE_PAYOUT;
+
+        double fee = 0;
         if (event.getCommissionType() == CommissionType.ON_CLOSE)
         {
-            feeAmount = totalOwedToWinners * event.getCommissionPercent() / 100.0;
-            event.addFeesCollected(feeAmount);
+            fee = owedToWinners * event.getCommissionPercent() / 100.0;
+            mm.addToBalance(fee);
+            event.addFeesCollected(fee);
+        }
+        double actualPayout = owedToWinners - fee;
+
+        if (totalWinningShares > 0)
+        {
+            payLmsrWinners(event, winningOptionIndex, totalWinningShares, actualPayout);
         }
 
-        double actualPayout = totalOwedToWinners - feeAmount;
-        event.addToAccountBalance(-actualPayout);
+        double leftoverSubsidy = originalBalance - owedToWinners;
+        mm.addToBalance(leftoverSubsidy);
+
+        event.addToAccountBalance(-originalBalance);
         event.close(winningOptionIndex);
     }
 
-    @Override
-    public void saveStateToFile(String filePath) throws EngineException
+    private void payLmsrWinners(Event event, int winningOptionIndex, int totalWinningShares, double actualPayout)
+            throws EngineException
     {
-        requireEventsLoaded();
-        String fullPath = filePath.trim() + SAVE_FILE_EXTENSION;
-        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(fullPath)))
+        List<String> paidUsers = new ArrayList<>();
+        for (Trade trade : event.getTradeHistory())
         {
-            out.writeObject(events);
-        }
-        catch (IOException e)
-        {
-            throw new EngineException("Could not save the system state: " + e.getMessage());
+            if (!trade.getOptionName().equals(event.getOptionName(winningOptionIndex)))
+            {
+                continue;
+            }
+            String userName = trade.getUserName();
+            if (paidUsers.contains(userName))
+            {
+                continue;
+            }
+            paidUsers.add(userName);
+
+            int theirQuantity = sumUserQuantityInOption(event, userName, winningOptionIndex);
+            double theirPayout = actualPayout * theirQuantity / totalWinningShares;
+            findUserByName(userName).addToBalance(theirPayout);
         }
     }
 
-    @Override
-    public void loadStateFromFile(String filePath) throws EngineException
+    private int sumUserQuantityInOption(Event event, String userName, int optionIndex)
     {
-        String fullPath = filePath.trim() + SAVE_FILE_EXTENSION;
-        if (!new File(fullPath).exists())
+        int total = 0;
+        for (Trade trade : event.getTradeHistory())
         {
-            throw new EngineException("No saved state file found at: " + fullPath);
+            if (trade.getUserName().equals(userName) && trade.getOptionName().equals(event.getOptionName(optionIndex)))
+            {
+                total += trade.getQuantity();
+            }
         }
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(fullPath)))
+        return total;
+    }
+
+    private void closeOrderBookEvent(Event event, User mm, int winningOptionIndex) throws EngineException
+    {
+        double originalBalance = event.getAccountBalance();
+        int totalWinningShares = 0;
+        for (Holding holding : event.getHoldings())
         {
-            List<Event> loadedEvents = (List<Event>) in.readObject();
-            this.events = loadedEvents;
+            if (holding.getOptionIndex() == winningOptionIndex)
+            {
+                totalWinningShares += holding.getQuantity();
+            }
         }
-        catch (IOException e)
+        double owedToWinners = totalWinningShares * event.getBaseValueD();
+
+        double fee = 0;
+        if (event.getCommissionType() == CommissionType.ON_CLOSE)
         {
-            throw new EngineException("Could not load the saved state: " + e.getMessage());
+            fee = owedToWinners * event.getCommissionPercent() / 100.0;
+            mm.addToBalance(fee);
+            event.addFeesCollected(fee);
         }
-        catch (ClassNotFoundException e)
+        double actualPayout = owedToWinners - fee;
+
+        if (totalWinningShares > 0)
         {
-            throw new EngineException("Could not load the saved state: " + e.getMessage());
+            for (Holding holding : event.getHoldings())
+            {
+                if (holding.getOptionIndex() == winningOptionIndex && holding.getQuantity() > 0)
+                {
+                    double theirShare = actualPayout * holding.getQuantity() / totalWinningShares;
+                    findUserByName(holding.getUserName()).addToBalance(theirShare);
+                }
+            }
         }
+
+        double leftover = originalBalance - owedToWinners;
+        mm.addToBalance(leftover);
+
+        event.addToAccountBalance(-originalBalance);
+        event.close(winningOptionIndex);
+    }
+
+    private boolean eventInvolvesUser(Event event, String userName)
+    {
+        if (event.getMethod() == TradingMethod.LMSR)
+        {
+            for (Trade trade : event.getTradeHistory())
+            {
+                if (trade.getUserName().equals(userName))
+                {
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            for (Holding holding : event.getHoldings())
+            {
+                if (holding.getUserName().equals(userName) && holding.getQuantity() > 0)
+                {
+                    return true;
+                }
+            }
+            for (Order order : event.getOrderBook())
+            {
+                if (order.getUserName().equals(userName))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private List<EventInfo> toEventInfoList(List<Event> eventList)
@@ -187,11 +372,28 @@ public class GuessMarketEngineImpl implements GuessMarketEngine
         }
     }
 
+    private void requireNotBlocked(User user) throws EngineException
+    {
+        if (user.isBlocked())
+        {
+            throw new EngineException("User '" + user.getName()
+                    + "' is blocked (a previous action put their balance below zero) and cannot perform any more actions.");
+        }
+    }
+
     private void requireEventsLoaded() throws EngineException
     {
         if (events.isEmpty())
         {
             throw new EngineException("No events are loaded. Use the load command to load an events file first.");
+        }
+    }
+
+    private void requireUsersLoaded() throws EngineException
+    {
+        if (users.isEmpty())
+        {
+            throw new EngineException("No users are loaded. Use the load command to load an events file first.");
         }
     }
 
@@ -206,5 +408,18 @@ public class GuessMarketEngineImpl implements GuessMarketEngine
             }
         }
         throw new EngineException("No event found with id " + eventId + ".");
+    }
+
+    private User findUserByName(String userName) throws EngineException
+    {
+        requireUsersLoaded();
+        for (User user : users)
+        {
+            if (user.getName().equals(userName))
+            {
+                return user;
+            }
+        }
+        throw new EngineException("No user found with the name '" + userName + "'.");
     }
 }
